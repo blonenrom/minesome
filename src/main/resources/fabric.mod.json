@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "eating-esp",
+  "version": "${version}",
+  "name": "Eating ESP",
+  "description": "Shows an ESP on the torso of players who are eating/using items",
+  "authors": ["EatingESP"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.eatingesp.EatingEspMod"
+    ]
+  },
+  "mixins": [
+    "eating-esp.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.15.0",
+    "fabric-api": "*",
+    "minecraft": "~1.21.4"
+  }
+}
