@@ -141,14 +141,15 @@ public class EatingEspRenderer {
         matrices.translate(-0.5f, -0.5f, 0.0f);
         RenderSystem.disableDepthTest();
         ir.renderItem(
-                stack,
-                net.minecraft.item.ModelTransformationMode.GUI,
-                false,
-                matrices,
-                immediate,
-                LightmapTextureManager.MAX_LIGHT_COORDINATE,
-                OverlayTexture.DEFAULT_UV,
-                ir.getModels().getModel(stack)
+        stack,
+        net.minecraft.item.ModelTransformationMode.GUI,
+        false,
+        matrices,
+        immediate,
+        LightmapTextureManager.MAX_LIGHT_COORDINATE,
+        OverlayTexture.DEFAULT_UV,
+        mc.getBakedModelManager().getItemModels().getModel(stack)
+);
         );
         immediate.draw();
         RenderSystem.enableDepthTest();
