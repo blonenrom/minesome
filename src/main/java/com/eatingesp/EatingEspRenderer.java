@@ -54,7 +54,7 @@ public class EatingEspRenderer {
             matrices.translate(ex - camPos.x, ey - camPos.y, ez - camPos.z);
 
             float yaw = camera.getYaw();
-            matrices.multiply(org.joml.Math.toRadians(-yaw), 0f, 1f, 0f);
+            matrices.multiply(new org.joml.Quaternionf().rotationY(org.joml.Math.toRadians(-yaw)));
 
             float time  = (System.currentTimeMillis() % (long)(PULSE_SPEED * 1000))
                           / (PULSE_SPEED * 1000f);
@@ -148,7 +148,7 @@ public class EatingEspRenderer {
                 immediate,
                 LightmapTextureManager.MAX_LIGHT_COORDINATE,
                 OverlayTexture.DEFAULT_UV,
-                ir.getModel(stack, null, null, 0)
+                ir.getModel(stack, mc.world, null, 0)
         );
         immediate.draw();
         RenderSystem.enableDepthTest();
@@ -201,7 +201,7 @@ public class EatingEspRenderer {
         if (item instanceof PotionItem)                return true;
         if (stack.isOf(Items.HONEY_BOTTLE))            return true;
         if (stack.isOf(Items.MILK_BUCKET))             return true;
-        if (stack.getItem().getFoodComponent() != null) return true;
+        if (stack.getComponents().contains(net.minecraft.component.DataComponentTypes.FOOD)) return true;
         return false;
     }
 
