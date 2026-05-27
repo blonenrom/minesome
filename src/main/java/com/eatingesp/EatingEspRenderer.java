@@ -5,7 +5,33 @@ import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.*;
 import net.minecraft.client.render.item.ItemRenderer;
-import net.minecraft.client.render.item.model.special.ModelTransformationMode;
+private static void renderItemIcon(
+        MinecraftClient mc,
+        MatrixStack matrices,
+        VertexConsumerProvider.Immediate immediate,
+        ItemStack stack) {
+
+    ItemRenderer ir = mc.getItemRenderer();
+
+    matrices.push();
+    matrices.translate(-0.5f, -0.5f, 0.0f);
+
+    RenderSystem.disableDepthTest();
+    ir.renderItem(
+            stack,
+            ModelTransformationMode.GUI,
+            false,
+            matrices,
+            immediate,
+            LightmapTextureManager.MAX_LIGHT_COORDINATE,
+            OverlayTexture.DEFAULT_UV,
+            ir.getModel(stack, null, null, 0)
+    );
+    immediate.draw();
+    RenderSystem.enableDepthTest();
+
+    matrices.pop();
+}
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.*;
