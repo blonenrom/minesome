@@ -140,20 +140,7 @@ public class EatingEspRenderer {
         matrices.push();
         matrices.translate(-0.5f, -0.5f, 0.0f);
         RenderSystem.disableDepthTest();
-        ir.renderItem(
-        stack,
-        net.minecraft.item.ModelTransformationMode.GUI,
-        false,
-        matrices,
-        immediate,
-        LightmapTextureManager.MAX_LIGHT_COORDINATE,
-        OverlayTexture.DEFAULT_UV,
-        mc.getItemRenderer().getModels().getModel(stack)
-        );
-        immediate.draw();
-        RenderSystem.enableDepthTest();
-        matrices.pop();
-    }
+        ir.renderItem(null, stack, net.minecraft.item.ModelTransformationMode.GUI, false, matrices, immediate, mc.world, LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0);
 
     private static boolean isConsumable(ItemStack stack) {
         Item item = stack.getItem();
