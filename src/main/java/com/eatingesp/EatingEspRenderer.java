@@ -148,7 +148,7 @@ public class EatingEspRenderer {
         immediate,
         LightmapTextureManager.MAX_LIGHT_COORDINATE,
         OverlayTexture.DEFAULT_UV,
-        mc.getBakedModelManager().getItemModels().getModel(stack)
+        mc.getItemRenderer().getModels().getModel(stack)
         );
         immediate.draw();
         RenderSystem.enableDepthTest();
