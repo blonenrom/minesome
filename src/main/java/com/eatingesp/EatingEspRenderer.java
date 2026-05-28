@@ -16,7 +16,7 @@ import org.joml.Matrix4f;
 public class EatingEspRenderer {
 
     private static final float  PULSE_SPEED  = 2.0f;
-    private static final double Y_OFFSET     = 0.3;
+    private static final double Y_OFFSET     = 1.8; // над головой игрока
     private static final float  ITEM_SCALE   = 0.35f;
     private static final int    ARC_SEGMENTS = 48;
     private static final float  RING_OUTER   = 0.72f;
@@ -26,14 +26,10 @@ public class EatingEspRenderer {
         MinecraftClient mc = MinecraftClient.getInstance();
         World world = mc.world;
         if (world == null) return;
-        if (ctx.matrixStack() == null) return;
-
-        MatrixStack matrices = ctx.matrixStack();
-        VertexConsumerProvider.Immediate immediate =
-                mc.getBufferBuilders().getEntityVertexConsumers();
 
         Camera camera = ctx.camera();
         Vec3d camPos  = camera.getPos();
+        float tickDelta = ctx.tickCounter().getTickDelta(true);
 
         for (PlayerEntity player : world.getPlayers()) {
             if (player == mc.player) continue;
@@ -44,60 +40,58 @@ public class EatingEspRenderer {
             if (usingStack.isEmpty()) continue;
             if (!isConsumable(usingStack)) continue;
 
-            float tickDelta = ctx.tickCounter().getTickDelta(true);
             Vec3d lerpPos = player.getLerpedPos(tickDelta);
-
             double ex = lerpPos.x;
-            double ey = lerpPos.y + player.getHeight() * 0.5 + Y_OFFSET;
+            double ey = lerpPos.y + Y_OFFSET;
             double ez = lerpPos.z;
-
-            matrices.push();
-            matrices.translate(ex - camPos.x, ey - camPos.y, ez - camPos.z);
-
-            float yaw = camera.getYaw();
-            matrices.multiply(new org.joml.Quaternionf().rotationY(org.joml.Math.toRadians(-yaw)));
-
-            float time  = (System.currentTimeMillis() % (long)(PULSE_SPEED * 1000))
-                          / (PULSE_SPEED * 1000f);
-            float pulse = 1.0f + 0.06f * (float) Math.sin(time * Math.PI * 2);
-            matrices.scale(ITEM_SCALE * pulse, ITEM_SCALE * pulse, ITEM_SCALE * pulse);
-
-            int[] colour = getItemColour(usingStack);
 
             float maxUseTicks = usingStack.getMaxUseTime(player);
             float ticksUsed   = maxUseTicks - player.getItemUseTimeLeft();
             float progress    = maxUseTicks > 0 ? Math.min(1.0f, ticksUsed / maxUseTicks) : 0f;
+            int[] colour = getItemColour(usingStack);
 
-            // Flush before custom geometry
+            float time  = (System.currentTimeMillis() % (long)(PULSE_SPEED * 1000)) / (PULSE_SPEED * 1000f);
+            float pulse = 1.0f + 0.06f * (float) Math.sin(time * Math.PI * 2);
+
+            // Рисуем через прямой GL без MatrixStack мира
+            RenderSystem.disableDepthTest();
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+
+            MatrixStack matrices = new MatrixStack();
+            matrices.translate(ex - camPos.x, ey - camPos.y, ez - camPos.z);
+
+            float yaw = camera.getYaw();
+            matrices.multiply(new org.joml.Quaternionf().rotationY(org.joml.Math.toRadians(-yaw)));
+            matrices.scale(ITEM_SCALE * pulse, ITEM_SCALE * pulse, ITEM_SCALE * pulse);
+
+            renderCircleDisc(matrices, 0, 0, RING_OUTER + 0.04f, 20, 20, 20, 180);
+            renderArcRing(matrices, RING_INNER, RING_OUTER, 1.0f, 60, 60, 60, 200);
+            renderArcRing(matrices, RING_INNER, RING_OUTER, progress, colour[0], colour[1], colour[2], 240);
+
+            RenderSystem.enableDepthTest();
+
+            // Иконка предмета
+            VertexConsumerProvider.Immediate immediate = mc.getBufferBuilders().getEntityVertexConsumers();
+            RenderSystem.disableDepthTest();
+            ItemRenderer ir = mc.getItemRenderer();
+            MatrixStack itemStack = new MatrixStack();
+            itemStack.translate(ex - camPos.x, ey - camPos.y, ez - camPos.z);
+            itemStack.multiply(new org.joml.Quaternionf().rotationY(org.joml.Math.toRadians(-yaw)));
+            itemStack.scale(ITEM_SCALE * pulse, ITEM_SCALE * pulse, ITEM_SCALE * pulse);
+            itemStack.translate(-0.5f, -0.5f, -0.1f);
+            ir.renderItem(null, usingStack, net.minecraft.item.ModelTransformationMode.GUI, false, itemStack, immediate, mc.world, LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0);
             immediate.draw();
-
-            renderCircleDisc(matrices, immediate, 0, 0, RING_OUTER + 0.04f, 20, 20, 20, 180);
-            immediate.draw();
-
-            renderArcRing(matrices, immediate, RING_INNER, RING_OUTER, 1.0f, 60, 60, 60, 200);
-            renderArcRing(matrices, immediate, RING_INNER, RING_OUTER, progress, colour[0], colour[1], colour[2], 240);
-            immediate.draw();
-
-            renderItemIcon(mc, matrices, immediate, usingStack);
-
-            matrices.pop();
+            RenderSystem.enableDepthTest();
         }
-
-        immediate.draw();
     }
 
-    private static void renderCircleDisc(
-            MatrixStack matrices, VertexConsumerProvider.Immediate provider,
-            float cx, float cy, float radius,
-            int r, int g, int b, int a) {
-
+    private static void renderCircleDisc(MatrixStack matrices, float cx, float cy, float radius, int r, int g, int b, int a) {
         Tessellator tess = Tessellator.getInstance();
         BufferBuilder buf = tess.begin(net.minecraft.client.render.VertexFormat.DrawMode.TRIANGLES,
                 net.minecraft.client.render.VertexFormats.POSITION_COLOR);
         Matrix4f mat = matrices.peek().getPositionMatrix();
 
-        RenderSystem.disableDepthTest();
-        RenderSystem.enableBlend();
         RenderSystem.setShader(net.minecraft.client.gl.ShaderProgramKeys.POSITION_COLOR);
 
         for (int i = 0; i < ARC_SEGMENTS; i++) {
@@ -109,14 +103,9 @@ public class EatingEspRenderer {
         }
 
         net.minecraft.client.render.BufferRenderer.drawWithGlobalProgram(buf.end());
-        RenderSystem.enableDepthTest();
     }
 
-    private static void renderArcRing(
-            MatrixStack matrices, VertexConsumerProvider.Immediate provider,
-            float innerR, float outerR, float fraction,
-            int r, int g, int b, int a) {
-
+    private static void renderArcRing(MatrixStack matrices, float innerR, float outerR, float fraction, int r, int g, int b, int a) {
         if (fraction <= 0) return;
 
         Tessellator tess = Tessellator.getInstance();
@@ -124,8 +113,6 @@ public class EatingEspRenderer {
                 net.minecraft.client.render.VertexFormats.POSITION_COLOR);
         Matrix4f mat = matrices.peek().getPositionMatrix();
 
-        RenderSystem.disableDepthTest();
-        RenderSystem.enableBlend();
         RenderSystem.setShader(net.minecraft.client.gl.ShaderProgramKeys.POSITION_COLOR);
 
         float startAngle = (float)(-Math.PI / 2);
@@ -136,39 +123,13 @@ public class EatingEspRenderer {
             float t0 = startAngle + sweep * ((float) i      / totalSeg);
             float t1 = startAngle + sweep * ((float)(i + 1) / totalSeg);
 
-            float ix0 = (float)Math.cos(t0) * innerR;
-            float iy0 = (float)Math.sin(t0) * innerR;
-            float ox0 = (float)Math.cos(t0) * outerR;
-            float oy0 = (float)Math.sin(t0) * outerR;
-            float ix1 = (float)Math.cos(t1) * innerR;
-            float iy1 = (float)Math.sin(t1) * innerR;
-            float ox1 = (float)Math.cos(t1) * outerR;
-            float oy1 = (float)Math.sin(t1) * outerR;
-
-            buf.vertex(mat, ix0, iy0, 0).color(r, g, b, a);
-            buf.vertex(mat, ox0, oy0, 0).color(r, g, b, a);
-            buf.vertex(mat, ox1, oy1, 0).color(r, g, b, a);
-            buf.vertex(mat, ix1, iy1, 0).color(r, g, b, a);
+            buf.vertex(mat, (float)Math.cos(t0) * innerR, (float)Math.sin(t0) * innerR, 0).color(r, g, b, a);
+            buf.vertex(mat, (float)Math.cos(t0) * outerR, (float)Math.sin(t0) * outerR, 0).color(r, g, b, a);
+            buf.vertex(mat, (float)Math.cos(t1) * outerR, (float)Math.sin(t1) * outerR, 0).color(r, g, b, a);
+            buf.vertex(mat, (float)Math.cos(t1) * innerR, (float)Math.sin(t1) * innerR, 0).color(r, g, b, a);
         }
 
         net.minecraft.client.render.BufferRenderer.drawWithGlobalProgram(buf.end());
-        RenderSystem.enableDepthTest();
-    }
-
-    private static void renderItemIcon(
-            MinecraftClient mc,
-            MatrixStack matrices,
-            VertexConsumerProvider.Immediate immediate,
-            ItemStack stack) {
-
-        ItemRenderer ir = mc.getItemRenderer();
-        matrices.push();
-        matrices.translate(-0.5f, -0.5f, 0.0f);
-        RenderSystem.disableDepthTest();
-        ir.renderItem(null, stack, net.minecraft.item.ModelTransformationMode.GUI, false, matrices, immediate, mc.world, LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0);
-        immediate.draw();
-        RenderSystem.enableDepthTest();
-        matrices.pop();
     }
 
     private static boolean isConsumable(ItemStack stack) {
