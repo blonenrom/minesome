@@ -23,9 +23,66 @@ public class EatingEspRenderer {
     private static final float  RING_INNER   = 0.58f;
 
     public static void onWorldRender(WorldRenderContext ctx) {
-        MinecraftClient mc = MinecraftClient.getInstance();
-        World world = mc.world;
-        if (world == null) return;
+    MinecraftClient mc = MinecraftClient.getInstance();
+    World world = mc.world;
+    if (world == null) return;
+    if (ctx.matrixStack() == null) return;
+
+    Camera camera = ctx.camera();
+    Vec3d camPos  = camera.getPos();
+    float tickDelta = ctx.tickCounter().getTickDelta(true);
+
+    for (PlayerEntity player : world.getPlayers()) {
+        if (player == mc.player) continue;
+        if (!player.isUsingItem()) continue;
+
+        Hand activeHand = player.getActiveHand();
+        ItemStack usingStack = player.getStackInHand(activeHand);
+        if (usingStack.isEmpty()) continue;
+        if (!isConsumable(usingStack)) continue;
+
+        Vec3d lerpPos = player.getLerpedPos(tickDelta);
+        // Крепим к центру тела (ноги + половина роста)
+        double ex = lerpPos.x;
+        double ey = lerpPos.y + player.getHeight() * 0.5 + 0.5;
+        double ez = lerpPos.z;
+
+        float maxUseTicks = usingStack.getMaxUseTime(player);
+        float ticksUsed   = maxUseTicks - player.getItemUseTimeLeft();
+        float progress    = maxUseTicks > 0 ? Math.min(1.0f, ticksUsed / maxUseTicks) : 0f;
+        int[] colour = getItemColour(usingStack);
+
+        float time  = (System.currentTimeMillis() % (long)(PULSE_SPEED * 1000)) / (PULSE_SPEED * 1000f);
+        float pulse = 1.0f + 0.06f * (float) Math.sin(time * Math.PI * 2);
+
+        MatrixStack matrices = ctx.matrixStack();
+        matrices.push();
+        matrices.translate(ex - camPos.x, ey - camPos.y, ez - camPos.z);
+
+        float yaw = camera.getYaw();
+        matrices.multiply(new org.joml.Quaternionf().rotationY(org.joml.Math.toRadians(-yaw)));
+        matrices.scale(ITEM_SCALE * pulse, ITEM_SCALE * pulse, ITEM_SCALE * pulse);
+
+        RenderSystem.disableDepthTest();
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+
+        renderCircleDisc(matrices, 0, 0, RING_OUTER + 0.04f, 20, 20, 20, 180);
+        renderArcRing(matrices, RING_INNER, RING_OUTER, 1.0f, 60, 60, 60, 200);
+        renderArcRing(matrices, RING_INNER, RING_OUTER, progress, colour[0], colour[1], colour[2], 240);
+
+        // Иконка
+        VertexConsumerProvider.Immediate immediate = mc.getBufferBuilders().getEntityVertexConsumers();
+        MatrixStack iconMat = new MatrixStack();
+        iconMat.multiplyPositionMatrix(matrices.peek().getPositionMatrix());
+        iconMat.translate(-0.5f, -0.5f, -0.1f);
+        mc.getItemRenderer().renderItem(null, usingStack, net.minecraft.item.ModelTransformationMode.GUI, false, iconMat, immediate, mc.world, LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0);
+        immediate.draw();
+
+        RenderSystem.enableDepthTest();
+        matrices.pop();
+    }
+}
 
         Camera camera = ctx.camera();
         Vec3d camPos  = camera.getPos();
