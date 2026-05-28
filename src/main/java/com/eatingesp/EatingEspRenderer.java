@@ -92,7 +92,7 @@ public class EatingEspRenderer {
             int r, int g, int b, int a) {
 
         Tessellator tess = Tessellator.getInstance();
-        BufferBuilder buf = tess.begin(net.minecraft.client.gl.VertexBuffer.DrawMode.TRIANGLES,
+        BufferBuilder buf = tess.begin(net.minecraft.client.render.VertexFormat.DrawMode.TRIANGLES,
                 net.minecraft.client.render.VertexFormats.POSITION_COLOR);
         Matrix4f mat = matrices.peek().getPositionMatrix();
 
@@ -120,7 +120,7 @@ public class EatingEspRenderer {
         if (fraction <= 0) return;
 
         Tessellator tess = Tessellator.getInstance();
-        BufferBuilder buf = tess.begin(net.minecraft.client.gl.VertexBuffer.DrawMode.QUADS,
+        BufferBuilder buf = tess.begin(net.minecraft.client.render.VertexFormat.DrawMode.QUADS,
                 net.minecraft.client.render.VertexFormats.POSITION_COLOR);
         Matrix4f mat = matrices.peek().getPositionMatrix();
 
