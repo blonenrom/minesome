@@ -26,6 +26,7 @@ public class EatingEspRenderer {
         MinecraftClient mc = MinecraftClient.getInstance();
         World world = mc.world;
         if (world == null) return;
+        if (ctx.matrixStack() == null) return;
 
         MatrixStack matrices = ctx.matrixStack();
         VertexConsumerProvider.Immediate immediate =
@@ -67,9 +68,16 @@ public class EatingEspRenderer {
             float ticksUsed   = maxUseTicks - player.getItemUseTimeLeft();
             float progress    = maxUseTicks > 0 ? Math.min(1.0f, ticksUsed / maxUseTicks) : 0f;
 
+            // Flush before custom geometry
+            immediate.draw();
+
             renderCircleDisc(matrices, immediate, 0, 0, RING_OUTER + 0.04f, 20, 20, 20, 180);
+            immediate.draw();
+
             renderArcRing(matrices, immediate, RING_INNER, RING_OUTER, 1.0f, 60, 60, 60, 200);
             renderArcRing(matrices, immediate, RING_INNER, RING_OUTER, progress, colour[0], colour[1], colour[2], 240);
+            immediate.draw();
+
             renderItemIcon(mc, matrices, immediate, usingStack);
 
             matrices.pop();
@@ -79,32 +87,46 @@ public class EatingEspRenderer {
     }
 
     private static void renderCircleDisc(
-            MatrixStack matrices, VertexConsumerProvider provider,
+            MatrixStack matrices, VertexConsumerProvider.Immediate provider,
             float cx, float cy, float radius,
             int r, int g, int b, int a) {
 
-        VertexConsumer vc  = provider.getBuffer(RenderLayer.getDebugFilledBox());
-        Matrix4f        mat = matrices.peek().getPositionMatrix();
+        Tessellator tess = Tessellator.getInstance();
+        BufferBuilder buf = tess.begin(net.minecraft.client.gl.VertexBuffer.DrawMode.TRIANGLES,
+                net.minecraft.client.render.VertexFormats.POSITION_COLOR);
+        Matrix4f mat = matrices.peek().getPositionMatrix();
+
+        RenderSystem.disableDepthTest();
+        RenderSystem.enableBlend();
+        RenderSystem.setShader(net.minecraft.client.gl.ShaderProgramKeys.POSITION_COLOR);
 
         for (int i = 0; i < ARC_SEGMENTS; i++) {
             float a0 = (float) i       / ARC_SEGMENTS * (float)(Math.PI * 2);
             float a1 = (float)(i + 1)  / ARC_SEGMENTS * (float)(Math.PI * 2);
-            vc.vertex(mat, cx, cy, 0).color(r, g, b, a);
-            vc.vertex(mat, cx + (float)Math.cos(a0) * radius, cy + (float)Math.sin(a0) * radius, 0).color(r, g, b, a);
-            vc.vertex(mat, cx + (float)Math.cos(a1) * radius, cy + (float)Math.sin(a1) * radius, 0).color(r, g, b, a);
-            vc.vertex(mat, cx, cy, 0).color(r, g, b, a);
+            buf.vertex(mat, cx, cy, 0).color(r, g, b, a);
+            buf.vertex(mat, cx + (float)Math.cos(a0) * radius, cy + (float)Math.sin(a0) * radius, 0).color(r, g, b, a);
+            buf.vertex(mat, cx + (float)Math.cos(a1) * radius, cy + (float)Math.sin(a1) * radius, 0).color(r, g, b, a);
         }
+
+        net.minecraft.client.render.BufferRenderer.drawWithGlobalProgram(buf.end());
+        RenderSystem.enableDepthTest();
     }
 
     private static void renderArcRing(
-            MatrixStack matrices, VertexConsumerProvider provider,
+            MatrixStack matrices, VertexConsumerProvider.Immediate provider,
             float innerR, float outerR, float fraction,
             int r, int g, int b, int a) {
 
         if (fraction <= 0) return;
 
-        VertexConsumer vc  = provider.getBuffer(RenderLayer.getDebugFilledBox());
-        Matrix4f        mat = matrices.peek().getPositionMatrix();
+        Tessellator tess = Tessellator.getInstance();
+        BufferBuilder buf = tess.begin(net.minecraft.client.gl.VertexBuffer.DrawMode.QUADS,
+                net.minecraft.client.render.VertexFormats.POSITION_COLOR);
+        Matrix4f mat = matrices.peek().getPositionMatrix();
+
+        RenderSystem.disableDepthTest();
+        RenderSystem.enableBlend();
+        RenderSystem.setShader(net.minecraft.client.gl.ShaderProgramKeys.POSITION_COLOR);
 
         float startAngle = (float)(-Math.PI / 2);
         float sweep      = fraction * (float)(Math.PI * 2);
@@ -123,11 +145,14 @@ public class EatingEspRenderer {
             float ox1 = (float)Math.cos(t1) * outerR;
             float oy1 = (float)Math.sin(t1) * outerR;
 
-            vc.vertex(mat, ix0, iy0, 0).color(r, g, b, a);
-            vc.vertex(mat, ox0, oy0, 0).color(r, g, b, a);
-            vc.vertex(mat, ox1, oy1, 0).color(r, g, b, a);
-            vc.vertex(mat, ix1, iy1, 0).color(r, g, b, a);
+            buf.vertex(mat, ix0, iy0, 0).color(r, g, b, a);
+            buf.vertex(mat, ox0, oy0, 0).color(r, g, b, a);
+            buf.vertex(mat, ox1, oy1, 0).color(r, g, b, a);
+            buf.vertex(mat, ix1, iy1, 0).color(r, g, b, a);
         }
+
+        net.minecraft.client.render.BufferRenderer.drawWithGlobalProgram(buf.end());
+        RenderSystem.enableDepthTest();
     }
 
     private static void renderItemIcon(
