@@ -141,6 +141,10 @@ public class EatingEspRenderer {
         matrices.translate(-0.5f, -0.5f, 0.0f);
         RenderSystem.disableDepthTest();
         ir.renderItem(null, stack, net.minecraft.item.ModelTransformationMode.GUI, false, matrices, immediate, mc.world, LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0);
+        immediate.draw();
+        RenderSystem.enableDepthTest();
+        matrices.pop();
+    }
 
     private static boolean isConsumable(ItemStack stack) {
         Item item = stack.getItem();
