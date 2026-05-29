@@ -9,6 +9,6 @@ public class EatingEspMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        WorldRenderEvents.AFTER_ENTITIES.register(EatingEspRenderer::onWorldRender);
+        WorldRenderEvents.END.register(EatingEspRenderer::onWorldRender);
     }
 }
