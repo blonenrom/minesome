@@ -4,7 +4,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderContext;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.render.*;
-import net.minecraft.client.render.item.ItemRenderer;
 import net.minecraft.client.util.math.MatrixStack;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.*;
@@ -12,24 +11,28 @@ import net.minecraft.util.Hand;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
 import org.joml.Matrix4f;
+import org.joml.Vector4f;
 
 public class EatingEspRenderer {
 
-    private static final float  PULSE_SPEED  = 2.0f;
-    private static final float  ITEM_SCALE   = 0.35f;
-    private static final int    ARC_SEGMENTS = 48;
-    private static final float  RING_OUTER   = 0.72f;
-    private static final float  RING_INNER   = 0.58f;
+    private static final float PULSE_SPEED  = 2.0f;
+    private static final float ITEM_SCALE   = 0.35f;
+    private static final int   ARC_SEGMENTS = 48;
+    private static final float RING_OUTER   = 0.72f;
+    private static final float RING_INNER   = 0.58f;
 
     public static void onWorldRender(WorldRenderContext ctx) {
         MinecraftClient mc = MinecraftClient.getInstance();
         World world = mc.world;
         if (world == null) return;
-        if (ctx.matrixStack() == null) return;
 
         Camera camera = ctx.camera();
         Vec3d camPos = camera.getPos();
         float tickDelta = ctx.tickCounter().getTickDelta(true);
+
+        // Матрица проекции + вид камеры
+        Matrix4f proj = RenderSystem.getProjectionMatrix();
+        Matrix4f view = new Matrix4f(RenderSystem.getModelViewMatrix());
 
         for (PlayerEntity player : world.getPlayers()) {
             if (player == mc.player) continue;
@@ -40,10 +43,13 @@ public class EatingEspRenderer {
             if (usingStack.isEmpty()) continue;
             if (!isConsumable(usingStack)) continue;
 
-            Vec3d lerpPos = player.getLerpedPos(tickDelta);
             double ex = player.prevX + (player.getX() - player.prevX) * tickDelta;
             double ey = player.prevY + (player.getY() - player.prevY) * tickDelta + player.getHeight() * 0.5 + 0.5;
             double ez = player.prevZ + (player.getZ() - player.prevZ) * tickDelta;
+
+            float dx = (float)(ex - camPos.x);
+            float dy = (float)(ey - camPos.y);
+            float dz = (float)(ez - camPos.z);
 
             float maxUseTicks = usingStack.getMaxUseTime(player);
             float ticksUsed = maxUseTicks - player.getItemUseTimeLeft();
@@ -53,43 +59,55 @@ public class EatingEspRenderer {
             float time = (System.currentTimeMillis() % (long)(PULSE_SPEED * 1000)) / (PULSE_SPEED * 1000f);
             float pulse = 1.0f + 0.06f * (float) Math.sin(time * Math.PI * 2);
 
-            MatrixStack matrices = ctx.matrixStack();
-            matrices.push();
-            matrices.translate(ex - camPos.x, ey - camPos.y, ez - camPos.z);
-            matrices.multiply(new org.joml.Quaternionf().rotationY(org.joml.Math.toRadians(-camera.getYaw())));
-            matrices.multiply(new org.joml.Quaternionf().rotationX(org.joml.Math.toRadians(camera.getPitch())));
+            // Строим матрицу: view * translate * billboardYaw * scale
+            Matrix4f model = new Matrix4f(view);
+            model.translate(dx, dy, dz);
+            model.rotateY(org.joml.Math.toRadians(-camera.getYaw()));
+            model.scale(ITEM_SCALE * pulse);
+
+            Matrix4f mvp = new Matrix4f(proj).mul(model);
+
+            MatrixStack matrices = new MatrixStack();
+            matrices.multiplyPositionMatrix(mvp);
 
             RenderSystem.disableDepthTest();
             RenderSystem.enableBlend();
             RenderSystem.defaultBlendFunc();
+            RenderSystem.setShader(net.minecraft.client.gl.ShaderProgramKeys.POSITION_COLOR);
 
-            renderCircleDisc(matrices, 0, 0, RING_OUTER + 0.04f, 20, 20, 20, 180);
+            renderCircleDisc(matrices, RING_OUTER + 0.04f, 20, 20, 20, 180);
             renderArcRing(matrices, RING_INNER, RING_OUTER, 1.0f, 60, 60, 60, 200);
             renderArcRing(matrices, RING_INNER, RING_OUTER, progress, colour[0], colour[1], colour[2], 240);
 
-            VertexConsumerProvider.Immediate immediate = mc.getBufferBuilders().getEntityVertexConsumers();
-            MatrixStack iconMat = new MatrixStack();
-            iconMat.multiplyPositionMatrix(matrices.peek().getPositionMatrix());
-            iconMat.translate(-0.5f, -0.5f, -0.1f);
-            mc.getItemRenderer().renderItem(null, usingStack, net.minecraft.item.ModelTransformationMode.GUI, false, iconMat, immediate, mc.world, LightmapTextureManager.MAX_LIGHT_COORDINATE, OverlayTexture.DEFAULT_UV, 0);
-            immediate.draw();
-
             RenderSystem.enableDepthTest();
-            matrices.pop();
+
+            // Иконка
+            MatrixStack iconMat = new MatrixStack();
+            iconMat.multiplyPositionMatrix(mvp);
+            iconMat.translate(-0.5f, -0.5f, 0f);
+
+            VertexConsumerProvider.Immediate immediate = mc.getBufferBuilders().getEntityVertexConsumers();
+            RenderSystem.disableDepthTest();
+            mc.getItemRenderer().renderItem(null, usingStack,
+                    net.minecraft.item.ModelTransformationMode.GUI, false,
+                    iconMat, immediate, mc.world,
+                    LightmapTextureManager.MAX_LIGHT_COORDINATE,
+                    OverlayTexture.DEFAULT_UV, 0);
+            immediate.draw();
+            RenderSystem.enableDepthTest();
         }
     }
 
-    private static void renderCircleDisc(MatrixStack matrices, float cx, float cy, float radius, int r, int g, int b, int a) {
+    private static void renderCircleDisc(MatrixStack matrices, float radius, int r, int g, int b, int a) {
         Tessellator tess = Tessellator.getInstance();
         BufferBuilder buf = tess.begin(VertexFormat.DrawMode.TRIANGLES, VertexFormats.POSITION_COLOR);
         Matrix4f mat = matrices.peek().getPositionMatrix();
-        RenderSystem.setShader(net.minecraft.client.gl.ShaderProgramKeys.POSITION_COLOR);
         for (int i = 0; i < ARC_SEGMENTS; i++) {
             float a0 = (float) i / ARC_SEGMENTS * (float)(Math.PI * 2);
             float a1 = (float)(i + 1) / ARC_SEGMENTS * (float)(Math.PI * 2);
-            buf.vertex(mat, cx, cy, 0).color(r, g, b, a);
-            buf.vertex(mat, cx + (float)Math.cos(a0) * radius, cy + (float)Math.sin(a0) * radius, 0).color(r, g, b, a);
-            buf.vertex(mat, cx + (float)Math.cos(a1) * radius, cy + (float)Math.sin(a1) * radius, 0).color(r, g, b, a);
+            buf.vertex(mat, 0, 0, 0).color(r, g, b, a);
+            buf.vertex(mat, (float)Math.cos(a0) * radius, (float)Math.sin(a0) * radius, 0).color(r, g, b, a);
+            buf.vertex(mat, (float)Math.cos(a1) * radius, (float)Math.sin(a1) * radius, 0).color(r, g, b, a);
         }
         BufferRenderer.drawWithGlobalProgram(buf.end());
     }
@@ -99,7 +117,6 @@ public class EatingEspRenderer {
         Tessellator tess = Tessellator.getInstance();
         BufferBuilder buf = tess.begin(VertexFormat.DrawMode.QUADS, VertexFormats.POSITION_COLOR);
         Matrix4f mat = matrices.peek().getPositionMatrix();
-        RenderSystem.setShader(net.minecraft.client.gl.ShaderProgramKeys.POSITION_COLOR);
         float startAngle = (float)(-Math.PI / 2);
         float sweep = fraction * (float)(Math.PI * 2);
         int totalSeg = Math.max(1, Math.round(ARC_SEGMENTS * fraction));
