@@ -63,6 +63,7 @@ public class EatingEspRenderer {
             Matrix4f model = new Matrix4f(view);
             model.translate(dx, dy, dz);
             model.rotateY(org.joml.Math.toRadians(-camera.getYaw()));
+            model.rotateX(org.joml.Math.toRadians(camera.getPitch()));
             model.scale(ITEM_SCALE * pulse);
 
             Matrix4f mvp = new Matrix4f(proj).mul(model);
