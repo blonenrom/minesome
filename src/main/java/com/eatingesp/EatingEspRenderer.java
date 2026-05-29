@@ -60,11 +60,12 @@ public class EatingEspRenderer {
             float pulse = 1.0f + 0.06f * (float) Math.sin(time * Math.PI * 2);
 
             // Строим матрицу: view * translate * billboardYaw * scale
-            Matrix4f model = new Matrix4f(view);
-            model.translate(dx, dy, dz);
-            model.rotateY(org.joml.Math.toRadians(-camera.getYaw()));
-            model.rotateX(org.joml.Math.toRadians(camera.getPitch()));
-            model.scale(ITEM_SCALE * pulse);
+            Matrix4f translate = new Matrix4f().translation(dx, dy, dz);
+            Matrix4f billboard = new Matrix4f().rotationY(org.joml.Math.toRadians(-camera.getYaw()));
+            Matrix4f scale = new Matrix4f().scaling(ITEM_SCALE * pulse);
+
+            Matrix4f model = new Matrix4f(view).mul(translate).mul(billboard).mul(scale);
+            Matrix4f mvp = new Matrix4f(proj).mul(model);
 
             Matrix4f mvp = new Matrix4f(proj).mul(model);
 
