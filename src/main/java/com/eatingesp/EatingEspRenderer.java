@@ -56,8 +56,8 @@ public class EatingEspRenderer {
             MatrixStack matrices = ctx.matrixStack();
             matrices.push();
             matrices.translate(ex - camPos.x, ey - camPos.y, ez - camPos.z);
-            matrices.multiply(new org.joml.Quaternionf().rotationY(org.joml.Math.toRadians(-camera.getYaw())));
-            matrices.scale(ITEM_SCALE * pulse, ITEM_SCALE * pulse, ITEM_SCALE * pulse);
+matrices.multiply(new org.joml.Quaternionf().rotationY(org.joml.Math.toRadians(-camera.getYaw())));
+matrices.multiply(new org.joml.Quaternionf().rotationX(org.joml.Math.toRadians(camera.getPitch())));
 
             RenderSystem.disableDepthTest();
             RenderSystem.enableBlend();
