@@ -65,8 +65,7 @@ public class EatingEspRenderer {
             Matrix4f scale = new Matrix4f().scaling(ITEM_SCALE * pulse);
 
             Matrix4f model = new Matrix4f(view).mul(translate).mul(billboard).mul(scale);
-            Matrix4f mvp = new Matrix4f(proj).mul(model);
-
+            
             Matrix4f mvp = new Matrix4f(proj).mul(model);
 
             MatrixStack matrices = new MatrixStack();
