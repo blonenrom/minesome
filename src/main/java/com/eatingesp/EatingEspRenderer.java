@@ -41,9 +41,9 @@ public class EatingEspRenderer {
             if (!isConsumable(usingStack)) continue;
 
             Vec3d lerpPos = player.getLerpedPos(tickDelta);
-            double ex = lerpPos.x;
-            double ey = lerpPos.y + player.getHeight() * 0.5 + 0.5;
-            double ez = lerpPos.z;
+            double ex = player.prevX + (player.getX() - player.prevX) * tickDelta;
+            double ey = player.prevY + (player.getY() - player.prevY) * tickDelta + player.getHeight() * 0.5 + 0.5;
+            double ez = player.prevZ + (player.getZ() - player.prevZ) * tickDelta;
 
             float maxUseTicks = usingStack.getMaxUseTime(player);
             float ticksUsed = maxUseTicks - player.getItemUseTimeLeft();
@@ -56,8 +56,8 @@ public class EatingEspRenderer {
             MatrixStack matrices = ctx.matrixStack();
             matrices.push();
             matrices.translate(ex - camPos.x, ey - camPos.y, ez - camPos.z);
-matrices.multiply(new org.joml.Quaternionf().rotationY(org.joml.Math.toRadians(-camera.getYaw())));
-matrices.multiply(new org.joml.Quaternionf().rotationX(org.joml.Math.toRadians(camera.getPitch())));
+            matrices.multiply(new org.joml.Quaternionf().rotationY(org.joml.Math.toRadians(-camera.getYaw())));
+            matrices.multiply(new org.joml.Quaternionf().rotationX(org.joml.Math.toRadians(camera.getPitch())));
 
             RenderSystem.disableDepthTest();
             RenderSystem.enableBlend();
